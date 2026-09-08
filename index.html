@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hinkley High School — Floor Plan Finder</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Inter:wght@400;500;600;700&display=swap');
+
+  :root{
+    --paper:#F3F1EA;
+    --ink:#232323;
+    --sub:#6b665c;
+    --line:#d8d0ba;
+    --corridor:#c9c2aa;
+
+    --red:#B9342A;    --red-bg:#F3CDC7;
+    --gold:#9A6B00;   --gold-bg:#F7E9A6;
+    --green:#2E7D32;  --green-bg:#C9E3C9;
+    --blue:#1F6FB2;   --blue-bg:#C6DDF0;
+    --purple:#7B4B94; --purple-bg:#DEC7EC;
+    --pink:#B0225A;   --pink-bg:#F4C4D9;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .topbar{
+    position:sticky; top:0; z-index:100;
+    background:var(--paper);
+    border-bottom:2px solid var(--ink);
+    padding:12px 14px 10px;
+  }
+  h1{
+    font-family:'Archivo',sans-serif;
+    font-weight:800;
+    font-size:1.05rem;
+    margin:0 0 8px;
+  }
+  .searchwrap{position:relative; margin-bottom:8px;}
+  #search{
+    width:100%;
+    font-family:'Inter',sans-serif;
+    font-size:1rem;
+    padding:11px 40px 11px 14px;
+    border:2px solid var(--ink);
+    border-radius:10px;
+    background:#fff;
+  }
+  #search:focus{outline:3px solid var(--gold); outline-offset:0;}
+  .clearbtn{
+    position:absolute; right:8px; top:50%; transform:translateY(-50%);
+    background:none; border:none; font-size:1.1rem; color:var(--sub);
+    cursor:pointer; display:none; padding:6px;
+  }
+  #searchresults{
+    position:absolute; left:0; right:0; top:calc(100% + 4px);
+    background:#fff; border:2px solid var(--ink); border-radius:10px;
+    max-height:60vh; overflow-y:auto; display:none; z-index:200;
+  }
+  #searchresults.show{display:block;}
+  .sr-count{font-size:0.75rem; color:var(--sub); padding:8px 12px 2px;}
+  .sr-item{
+    display:flex; align-items:center; gap:10px;
+    padding:10px 12px; border-top:1px solid var(--line);
+    cursor:pointer;
+  }
+  .sr-item:active{background:#f2f0e8;}
+  .sr-num{font-family:'Archivo',sans-serif; font-weight:800; font-size:1rem; min-width:52px;}
+  .sr-meta{font-size:0.78rem; color:var(--sub); flex:1;}
+  .sr-floorpill{
+    font-size:0.65rem; font-weight:700; padding:3px 7px; border-radius:20px;
+    background:var(--ink); color:var(--paper); white-space:nowrap;
+  }
+  .sr-none{padding:14px 12px; color:var(--sub); font-size:0.85rem;}
+  .sr-dupe{padding:8px 12px; font-size:0.72rem; color:var(--red); background:#FBEAEA; border-top:1px solid var(--line);}
+
+  .floortabs{display:flex; gap:8px;}
+  .floortab{
+    flex:1; font-family:'Archivo',sans-serif; font-weight:700; font-size:0.82rem;
+    padding:8px 6px; text-align:center; border:2px solid var(--ink); border-radius:8px;
+    background:#fff; color:var(--ink); cursor:pointer;
+  }
+  .floortab.active{background:var(--ink); color:var(--paper);}
+
+  .floorplan{display:none;}
+  .floorplan.active{display:block;}
+
+  .scrollhint{
+    font-size:0.72rem; color:var(--sub); text-align:center;
+    padding:8px 0 2px;
+  }
+
+  .topstrip{
+    display:flex; gap:10px; flex-wrap:wrap;
+    padding:12px 12px 4px;
+  }
+  .mainstrip{
+    display:flex; gap:10px;
+    overflow-x:auto;
+    padding:6px 12px 24px;
+    scroll-padding:0 12px;
+    -webkit-overflow-scrolling:touch;
+  }
+
+  .hallway{
+    flex:0 0 auto;
+    width:150px;
+    display:flex; flex-direction:column;
+    border-radius:10px;
+    overflow:hidden;
+    border:2px solid var(--ink);
+    background:#fff;
+    scroll-margin:0 12px;
+  }
+  .hallway.wide{width:180px;}
+  .hallway.narrow{width:120px;}
+  .hallway-head{
+    font-family:'Archivo',sans-serif; font-weight:800; font-size:0.72rem;
+    line-height:1.2;
+    padding:8px 8px;
+    color:#fff;
+    text-align:center;
+  }
+  .hallway-head.red{background:var(--red);}
+  .hallway-head.gold{background:var(--gold);}
+  .hallway-head.green{background:var(--green);}
+  .hallway-head.blue{background:var(--blue);}
+  .hallway-head.purple{background:var(--purple);}
+  .hallway-head.pink{background:var(--pink);}
+  .hallway-head.void{background:var(--sub);}
+
+  .roomstack{display:flex; flex-direction:column; flex:1;}
+  .room{
+    padding:9px 8px;
+    border-bottom:1px solid var(--line);
+    font-size:0.78rem;
+    scroll-margin:120px 0 0 0;
+    transition:background 0.3s;
+  }
+  .room:last-child{border-bottom:none;}
+  .room .num{font-family:'Archivo',sans-serif; font-weight:800; font-size:0.92rem; display:block;}
+  .room .type{color:var(--sub); font-size:0.7rem;}
+  .room.red{background:var(--red-bg);}
+  .room.gold{background:var(--gold-bg);}
+  .room.green{background:var(--green-bg);}
+  .room.blue{background:var(--blue-bg);}
+  .room.purple{background:var(--purple-bg);}
+  .room.pink{background:var(--pink-bg);}
+  .room.hit{
+    background:#FFE066 !important;
+    box-shadow: inset 0 0 0 3px var(--ink);
+    animation: pulse 1.2s ease-in-out 2;
+  }
+  @keyframes pulse{
+    0%,100%{box-shadow: inset 0 0 0 3px var(--ink);}
+    50%{box-shadow: inset 0 0 0 3px var(--ink), 0 0 0 6px #FFE06699;}
+  }
+
+  .courtyard{
+    background:repeating-linear-gradient(45deg, #eae5d6, #eae5d6 6px, #f3f0e6 6px, #f3f0e6 12px);
+    display:flex; align-items:center; justify-content:center; text-align:center;
+    flex:1; min-height:200px;
+    font-family:'Archivo',sans-serif; font-weight:700; font-size:0.8rem; color:var(--sub);
+    padding:10px;
+  }
+
+  .exit{
+    background:#fff; border-top:2px dashed var(--ink);
+    padding:8px; font-size:0.68rem; font-weight:700; text-align:center; color:var(--ink);
+  }
+
+  .corridor{
+    flex:0 0 auto; width:14px; align-self:stretch;
+    background:repeating-linear-gradient(180deg, var(--corridor), var(--corridor) 4px, transparent 4px, transparent 8px);
+  }
+
+  .note{
+    margin:0 12px 20px; font-size:0.76rem; color:var(--sub); line-height:1.5;
+    background:#fff; border:1.5px dashed var(--line); border-radius:10px; padding:12px 14px;
+  }
+  .note b{color:var(--ink);}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>W.C. Hinkley High School — Floor Plan Finder</h1>
+  <div class="searchwrap">
+    <input id="search" type="text" inputmode="search" placeholder="Search a room number..." autocomplete="off">
+    <button class="clearbtn" id="clearbtn" aria-label="Clear">✕</button>
+    <div id="searchresults"></div>
+  </div>
+  <div class="floortabs">
+    <div class="floortab active" data-floor="2">2nd Floor</div>
+    <div class="floortab" data-floor="1">1st Floor</div>
+  </div>
+</div>
+
+<div class="scrollhint">👉 swipe sideways through the floor plan — search jumps straight to a room</div>
+
+<div id="floor2" class="floorplan active"></div>
+<div id="floor1" class="floorplan"></div>
+
+<script>
+/* ============ DATA ============
+   Layout mirrors the real adjacency from the hand-drawn plans:
+   left-to-right = hallway-to-hallway as you'd actually walk it,
+   top-to-bottom = room order along that hallway.
+   "courtyard" / "cafeteria" = the open center of the building.
+*/
+
+const FLOOR2 = {
+  top: [
+    {key:'pink', color:'pink', label:'Gym / Fitness', rooms:[
+      {n:'—', t:'PE Wrestling Room'},
+      {n:'2600', t:'Weight Room'},
+      {n:'2608', t:'Auxiliary Gym A'},
+      {n:'—', t:'Auxiliary Gym B (number not legible)'},
+    ], exit:'Student Entrance →'},
+    {key:'blue', color:'blue', label:'Senior / Band Hallway', rooms:[
+      {n:'2401', t:'Classroom'},
+      {n:'2402', t:'Classroom'},
+      {n:'2403', t:'CR (as labeled)'},
+      {n:'2404', t:'Classroom'},
+      {n:'2405', t:'Classroom'},
+      {n:'2450', t:'Office'},
+      {n:'2451', t:'Office'},
+    ], exit:'← Main Office Entrance/Exit'},
+    {key:'void', color:'void', label:'Open Area', rooms:[
+      {n:'—', t:'Unlabeled on original — likely open to the space below'},
+    ]},
+  ],
+  main: [
+    {key:'redtop', color:'red', label:'Red Wing — Commons', width:'wide', rooms:[
+      {n:'—', t:'Storage'},
+      {n:'2000', t:'Kitchen'},
+      {n:'2351', t:'Commons C'},
+      {n:'2460', t:'Commons D'},
+    ]},
+    {key:'redouter', color:'red', label:'Red Wing — Outer (west wall)', rooms:[
+      {n:'2305', t:'Science'},
+      {n:'2303', t:'Chemistry'},
+      {n:'2311', t:'Classroom'},
+      {n:'2309', t:'Science'},
+      {n:'2312', t:'Classroom'},
+      {n:'2310', t:'Classroom'},
+      {n:'2313', t:'Classroom'},
+      {n:'2315', t:'Classroom'},
+      {n:'2318', t:'Photography'},
+      {n:'2320', t:'Science'},
+      {n:'2323', t:'Science'},
+    ], exit:'East Commons Exit'},
+    {key:'redinner', color:'red', label:'Red Wing — Inner (corridor side)', rooms:[
+      {n:'2350', t:'Classroom'},
+      {n:'2301', t:'Classroom'},
+      {n:'2306', t:'Classroom'},
+      {n:'2308', t:'Classroom'},
+    ]},
+    {key:'yellow', color:'gold', label:'Media Center Wing', rooms:[
+      {n:'2327', t:'Classroom'},
+      {n:'2500', t:'Media Center'},
+      {n:'2541', t:'Computer Lab'},
+      {n:'2542', t:'Computer Lab'},
+      {n:'2506', t:'Office'},
+      {n:'2508', t:'Workroom'},
+      {n:'2513', t:'TV Lab'},
+      {n:'2515', t:'TV Studio'},
+    ]},
+    {key:'courtyard', color:'void', label:'Courtyard', courtyard:true, rooms:[
+      {n:'2225', t:'Classroom (south edge)'},
+    ]},
+    {key:'greenwest', color:'green', label:'Green Wing — West (courtyard side)', rooms:[
+      {n:'2220', t:'Classroom'},
+      {n:'2219', t:'Classroom'},
+      {n:'2217', t:'Classroom'},
+      {n:'2215', t:'Classroom'},
+      {n:'2213', t:'Classroom'},
+      {n:'2211', t:'Classroom'},
+      {n:'2210', t:'Classroom'},
+    ], exit:'NW Exit'},
+    {key:'greenmid', color:'green', label:'Green Wing — Middle (science pod)', rooms:[
+      {n:'2218', t:'Classroom'},
+      {n:'2216', t:'Classroom'},
+      {n:'2214', t:'Prep Room'},
+      {n:'2212', t:'Science'},
+      {n:'2203', t:'Chemistry'},
+      {n:'2205', t:'CR (as labeled)'},
+      {n:'2207', t:'Science'},
+    ]},
+    {key:'greeneast', color:'green', label:'Green Wing — East + Commons', width:'wide', rooms:[
+      {n:'2150', t:'Commons A'},
+      {n:'2263', t:'Commons B'},
+      {n:'2261', t:'Office'},
+      {n:'2262A', t:'Office'},
+      {n:'2262B', t:'Office'},
+      {n:'2406', t:'Classroom'},
+      {n:'2407', t:'Classroom'},
+      {n:'2021', t:'Serving Kitchen'},
+      {n:'2201', t:'Classroom'},
+      {n:'2202', t:'Classroom'},
+      {n:'2204', t:'Classroom'},
+      {n:'2206', t:'Classroom'},
+      {n:'2208', t:'Classroom'},
+      {n:'2209', t:'Classroom'},
+    ]},
+  ]
+};
+
+const FLOOR1 = {
+  top: [
+    {key:'pink', color:'pink', label:'Gym Complex', width:'wide', rooms:[
+      {n:'1600', t:'Gymnasium (+ bleachers)'},
+      {n:'1606', t:'Storage'},
+      {n:'1616', t:'PE Storage'},
+      {n:'1624', t:'Boiler Room'},
+      {n:'1630', t:'Training Room'},
+      {n:'1632', t:'Girls Locker Room'},
+      {n:'1634', t:'Office'},
+      {n:'1637', t:'PE Office'},
+      {n:'1639', t:'Boys Locker Room'},
+      {n:'1645', t:'Office'},
+      {n:'1646', t:'Athletic Locker Room'},
+      {n:'1655', t:'Office'},
+    ], exit:'Gym Locker Room Exit'},
+    {key:'blue', color:'blue', label:'Performing Arts / Pool', width:'wide', rooms:[
+      {n:'1406', t:'Band Room ⚠️ see note'},
+      {n:'1409', t:'Drama Room'},
+      {n:'1414', t:'Vocal Classroom'},
+      {n:'1417', t:'Storage'},
+      {n:'1424', t:'Office'},
+      {n:'1427', t:'Office'},
+      {n:'1428', t:'Guitar / Piano Room'},
+      {n:'1450', t:'Room'},
+      {n:'1451', t:'Faculty Lounge'},
+      {n:'1456', t:'Office'},
+      {n:'1457', t:'Office'},
+      {n:'1458', t:'Office'},
+      {n:'1702', t:'Storage'},
+      {n:'1800', t:'Pool'},
+      {n:'1804', t:'Mechanical Room'},
+    ], exit:'Senior/Band Hallway Exit'},
+  ],
+  main: [
+    {key:'yellowwest', color:'gold', label:'Yellow Wing — West', rooms:[
+      {n:'1350', t:'Office'},
+      {n:'1351', t:'Office'},
+      {n:'1352', t:'Storage'},
+      {n:'1353', t:'Office'},
+      {n:'1354', t:'Office'},
+      {n:'1357', t:'Office'},
+      {n:'1361', t:'Storage'},
+      {n:'1302', t:'Classroom'},
+      {n:'1303', t:'Classroom'},
+      {n:'1304', t:'Classroom'},
+      {n:'1305', t:'Classroom'},
+      {n:'1306', t:'Classroom'},
+    ], exit:'NW Exit'},
+    {key:'yellowsci', color:'gold', label:'Yellow Wing — Science Pod', rooms:[
+      {n:'1900', t:'Classroom'},
+      {n:'1901', t:'Life Skills Classroom'},
+      {n:'1907', t:'Office'},
+      {n:'1401', t:'Classroom'},
+      {n:'1402', t:'Classroom'},
+      {n:'1403', t:'Classroom'},
+      {n:'1404', t:'Classroom'},
+      {n:'1405', t:'Classroom'},
+      {n:'1406', t:'Science ⚠️ see note'},
+      {n:'1407', t:'Prep Room'},
+      {n:'1408', t:'Chemistry'},
+    ]},
+    {key:'cafeteria', color:'void', label:'Cafeteria', courtyard:true, rooms:[]},
+    {key:'greenwest', color:'green', label:'Green Wing — West', rooms:[
+      {n:'1119', t:'Classroom'},
+      {n:'1117', t:'Classroom'},
+      {n:'1115', t:'Classroom'},
+      {n:'1113', t:'Classroom'},
+      {n:'1111', t:'Classroom'},
+      {n:'1120', t:'Science'},
+      {n:'1123', t:'Science'},
+      {n:'1125', t:'Classroom'},
+      {n:'1166', t:'Storage'},
+      {n:'1167', t:'Storage'},
+      {n:'1169', t:'Rec Room'},
+    ], exit:'N+M Exit'},
+    {key:'greenmid', color:'green', label:'Green Wing — Middle (science pod)', rooms:[
+      {n:'1118', t:'Science'},
+      {n:'1114', t:'Classroom'},
+      {n:'1112', t:'Chemistry'},
+      {n:'1108', t:'Science'},
+    ]},
+    {key:'greeneast', color:'green', label:'Green Wing — East', rooms:[
+      {n:'1017', t:'Clinic'},
+      {n:'1150', t:'Office'},
+      {n:'1161', t:'Teacher Office'},
+      {n:'1102', t:'Classroom'},
+      {n:'1104', t:'Classroom'},
+      {n:'1106', t:'Prep Room'},
+      {n:'1107', t:'Classroom'},
+      {n:'1109', t:'Classroom'},
+      {n:'1110', t:'Classroom'},
+    ]},
+  ]
+};
+
+/* ============ BUILD ============ */
+function hallwayHTML(h){
+  const cls = h.width ? `hallway ${h.width}` : 'hallway';
+  let inner = `<div class="hallway-head ${h.color}">${h.label}</div>`;
+  if(h.courtyard){
+    inner += `<div class="courtyard">${h.label}<br><span style="font-weight:400;font-size:0.7rem;">(open area)</span></div>`;
+  }
+  inner += `<div class="roomstack">`;
+  h.rooms.forEach(r=>{
+    inner += `<div class="room ${h.color}" data-num="${r.n}"><span class="num">${r.n}</span><span class="type">${r.t}</span></div>`;
+  });
+  inner += `</div>`;
+  if(h.exit){
+    inner += `<div class="exit">🚪 ${h.exit}</div>`;
+  }
+  return `<div class="${cls}" id="${h.wrapId}">${inner}</div>`;
+}
+
+function buildFloor(containerId, data, floorNum){
+  const el = document.getElementById(containerId);
+  let html = `<div class="topstrip">`;
+  data.top.forEach(h=>{ h.wrapId = `f${floorNum}-${h.key}`; html += hallwayHTML(h); });
+  html += `</div><div class="mainstrip">`;
+  data.main.forEach(h=>{ h.wrapId = `f${floorNum}-${h.key}`; html += hallwayHTML(h); });
+  html += `</div>`;
+
+  html += `<div class="note"><b>A note on accuracy:</b> this is redrawn from a hand-colored, hand-labeled floor plan (2nd floor dated 2020&ndash;21, 1st floor dated 2021&ndash;22, both marked "DRAFT," updated 1/21/2026) — it's straightened out for readability, so hallway columns are shown in the correct left-to-right / top-to-bottom order but not to exact architectural scale. A few very faint closet and storage numbers were left off rather than guessed.
+  <br><br><b>⚠️ Room 1406 appears twice on the 1st floor</b> — once as the Band Room and once as a Science room, in different wings. That's how it's labeled on the original map, not a mistake in this rebuild — worth confirming with the front office which one you actually need.</div>`;
+
+  el.innerHTML = html;
+}
+
+buildFloor('floor2', FLOOR2, 2);
+buildFloor('floor1', FLOOR1, 1);
+
+/* ============ TABS ============ */
+document.querySelectorAll('.floortab').forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    document.querySelectorAll('.floortab').forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');
+    const f = tab.dataset.floor;
+    document.getElementById('floor1').classList.toggle('active', f==='1');
+    document.getElementById('floor2').classList.toggle('active', f==='2');
+  });
+});
+
+/* ============ SEARCH ============ */
+const searchInput = document.getElementById('search');
+const clearBtn = document.getElementById('clearbtn');
+const resultsBox = document.getElementById('searchresults');
+
+function collectRooms(data, floor){
+  const out = [];
+  [...data.top, ...data.main].forEach(h=>{
+    h.rooms.forEach(r=>{
+      if(r.n && r.n !== '—'){
+        out.push({num:r.n, type:r.t, wing:h.label, hallwayId:h.wrapId, floor});
+      }
+    });
+  });
+  return out;
+}
+const ROOMS = [...collectRooms(FLOOR2,2), ...collectRooms(FLOOR1,1)];
+
+function runSearch(q){
+  q = q.trim();
+  clearBtn.style.display = q ? 'block' : 'none';
+  document.querySelectorAll('.room').forEach(r=>r.classList.remove('hit'));
+
+  if(!q){ resultsBox.classList.remove('show'); resultsBox.innerHTML=''; return; }
+
+  const matches = ROOMS.filter(r => r.num.toLowerCase().includes(q.toLowerCase()));
+  resultsBox.classList.add('show');
+
+  if(matches.length === 0){
+    resultsBox.innerHTML = `<div class="sr-none">No room matching "${q}".</div>`;
+    return;
+  }
+
+  let html = `<div class="sr-count">${matches.length} match${matches.length!==1?'es':''}</div>`;
+  matches.slice(0,20).forEach((m,i)=>{
+    html += `<div class="sr-item" data-idx="${i}">
+      <span class="sr-num">${m.num}</span>
+      <span class="sr-meta">${m.type} · ${m.wing}</span>
+      <span class="sr-floorpill">Floor ${m.floor}</span>
+    </div>`;
+  });
+  resultsBox.innerHTML = html;
+
+  resultsBox.querySelectorAll('.sr-item').forEach(item=>{
+    item.addEventListener('click', ()=>{
+      const m = matches[parseInt(item.dataset.idx)];
+      goToRoom(m);
+    });
+  });
+}
+
+function goToRoom(m){
+  document.querySelectorAll('.floortab').forEach(t=>t.classList.toggle('active', t.dataset.floor==String(m.floor)));
+  document.getElementById('floor1').classList.toggle('active', m.floor===1);
+  document.getElementById('floor2').classList.toggle('active', m.floor===2);
+  resultsBox.classList.remove('show');
+
+  setTimeout(()=>{
+    const hallwayEl = document.getElementById(m.hallwayId);
+    if(!hallwayEl) return;
+    const roomEl = hallwayEl.querySelector(`.room[data-num="${CSS.escape(m.num)}"]`);
+    if(roomEl){
+      hallwayEl.scrollIntoView({behavior:'smooth', block:'nearest', inline:'center'});
+      setTimeout(()=>{
+        roomEl.scrollIntoView({behavior:'smooth', block:'center', inline:'center'});
+        roomEl.classList.add('hit');
+      }, 250);
+    }
+  }, 80);
+}
+
+searchInput.addEventListener('input', e => runSearch(e.target.value));
+clearBtn.addEventListener('click', ()=>{ searchInput.value=''; runSearch(''); searchInput.focus(); });
+document.addEventListener('click', (e)=>{
+  if(!e.target.closest('.searchwrap')) resultsBox.classList.remove('show');
+});
+</script>
+</body>
+</html>
